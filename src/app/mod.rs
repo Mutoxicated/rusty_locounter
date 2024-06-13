@@ -1,5 +1,5 @@
 
-use std::{fmt::Display, fs::{self, ReadDir}, io::Read};
+use std::{fs::{self, ReadDir}, io::Read};
 
 pub struct Results {
     pub loc:usize,
@@ -8,16 +8,9 @@ pub struct Results {
 
 impl Results {
     pub fn new() -> Self {
-        return Self {
+        Self {
             loc:0,
             files: Vec::new()
-        }
-    }
-
-    pub fn combine(&mut self, other:Results) {
-        self.loc += other.loc;
-        for file in &other.files {
-            self.files.push(file.clone())
         }
     }
 }
@@ -79,6 +72,14 @@ impl App {
         let extensions = self.file_extensions.as_mut().unwrap();
         extensions.push(ext_name.to_owned());
     }
+    
+    pub fn remove_extension(&mut self, i: usize) {
+        if self.file_extensions.is_none() {
+            return;
+        }
+        let extensions = self.file_extensions.as_mut().unwrap();
+        extensions.remove(i);
+    }
 
     pub fn get_extension(&mut self, i:usize) -> &mut String {
         let exts = self.file_extensions.as_mut().unwrap();
@@ -100,6 +101,14 @@ impl App {
         }
         let folders = self.folders_to_ignore.as_mut().unwrap();
         folders.push(ext_name.to_owned());
+    }
+
+    pub fn remove_foldern(&mut self, i: usize) {
+        if self.folders_to_ignore.is_none() {
+            return;
+        }
+        let folders = self.folders_to_ignore.as_mut().unwrap();
+        folders.remove(i);
     }
 
     pub fn get_folder(&mut self, i:usize) -> &mut String {
@@ -192,7 +201,7 @@ fn is_hidden_folder(entrypath: &std::path::Path) -> bool {
 
 fn has_ending(entrypath: &std::path::Path, ends:&Option<Vec<String>>) -> bool {
     if ends.is_none() {
-        return true
+        return false
     }
 
     for end in ends.as_ref().unwrap() {
@@ -224,7 +233,7 @@ fn extension_is_valid(entrypath: &std::path::Path, exts:&Option<Vec<String>>) ->
 }
 
 fn get_loc(buf:&Vec<u8>) -> usize {
-    let mut loc:usize = 0;
+    let mut loc:usize = 1;
     for byte in buf {
         if *byte == b'\n' {
             loc += 1;

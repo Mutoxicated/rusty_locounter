@@ -57,22 +57,27 @@ impl eframe::App for Dresser {
                     let iter = iter.unwrap();
                     
                     for i in 0..iter.len() {
+                        let mut exit = false;
                         menu.horizontal(|h| {
                             let label = h.label("Name");
                             let _ = h.text_edit_singleline(self.app.get_extension(i))
                                 .labelled_by(label.id);
                             let remove = h.button("-");
                             if remove.clicked() {
-                                todo!()
+                                self.app.remove_extension(i);
+                                exit = true;
                             }
                         });
+                        if exit {
+                            break;
+                        }
                     }
                 });
 
                 ui.menu_button("Prohibit folders", |menu| {
                     let but = menu.button("+");
                     if but.clicked() {
-                        self.app.add_folder("");
+                        self.app.add_extension("");
                     }
 
                     let iter = self.app.iterate_folders();
@@ -83,15 +88,20 @@ impl eframe::App for Dresser {
                     let iter = iter.unwrap();
                     
                     for i in 0..iter.len() {
+                        let mut exit = false;
                         menu.horizontal(|h| {
                             let label = h.label("Name");
                             let _ = h.text_edit_singleline(self.app.get_folder(i))
                                 .labelled_by(label.id);
                             let remove = h.button("-");
                             if remove.clicked() {
-                                todo!()
+                                self.app.remove_extension(i);
+                                exit = true;
                             }
                         });
+                        if exit {
+                            break;
+                        }
                     }
                 });
 
