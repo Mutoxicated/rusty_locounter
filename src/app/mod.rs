@@ -3,7 +3,7 @@ use std::{fs::{self, ReadDir}, io::Read};
 
 pub struct Results {
     pub loc:usize,
-    pub files:Vec<String>
+    pub files:Vec<File>
 }
 
 impl Results {
@@ -25,6 +25,21 @@ impl AppError {
             Self::NoPathToCheck => {
                 "You didn't set a path to your project folder!"
             }
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct File {
+    pub name: String,
+    pub loc: usize
+}
+
+impl File {
+    pub fn new(name: &str, loc: usize) -> Self {
+        Self {
+            name:name.to_owned(),
+            loc
         }
     }
 }
@@ -103,7 +118,7 @@ impl App {
         folders.push(ext_name.to_owned());
     }
 
-    pub fn remove_foldern(&mut self, i: usize) {
+    pub fn remove_folder(&mut self, i: usize) {
         if self.folders_to_ignore.is_none() {
             return;
         }
@@ -181,8 +196,11 @@ impl App {
                 let mut file = file.unwrap();
                 let mut buf: Vec<u8> = Vec::new();
                 file.read_to_end(&mut buf).unwrap();
-                res.loc += get_loc(&buf);
-                res.files.push(entry.file_name().into_string().unwrap())
+                let loc = get_loc(&buf);
+                res.loc += loc;
+                let folder = File::new(entry.file_name().to_str().unwrap(), loc);
+                res.files.push(folder);
+                res.files.sort();
             }   
         }
     }

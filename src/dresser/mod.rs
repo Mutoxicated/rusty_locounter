@@ -1,4 +1,4 @@
-use egui::{Color32, Vec2};
+use egui::{lerp, Color32, ScrollArea, Vec2};
 
 use crate::app::App;
 
@@ -45,6 +45,7 @@ impl eframe::App for Dresser {
                 }
 
                 ui.menu_button("Add custom extensions", |menu| {
+
                     let but = menu.button("+");
                     if but.clicked() {
                         self.app.add_extension("");
@@ -59,6 +60,7 @@ impl eframe::App for Dresser {
                     for i in 0..iter.len() {
                         let mut exit = false;
                         menu.horizontal(|h| {
+                            h.set_width(160.0);
                             let label = h.label("Name");
                             let _ = h.text_edit_singleline(self.app.get_extension(i))
                                 .labelled_by(label.id);
@@ -75,34 +77,37 @@ impl eframe::App for Dresser {
                 });
 
                 ui.menu_button("Prohibit folders", |menu| {
+
                     let but = menu.button("+");
                     if but.clicked() {
-                        self.app.add_extension("");
+                        self.app.add_folder("");
                     }
-
-                    let iter = self.app.iterate_folders();
-
-                    if iter.is_none() {
-                        return;
-                    }
-                    let iter = iter.unwrap();
                     
-                    for i in 0..iter.len() {
-                        let mut exit = false;
-                        menu.horizontal(|h| {
-                            let label = h.label("Name");
-                            let _ = h.text_edit_singleline(self.app.get_folder(i))
-                                .labelled_by(label.id);
-                            let remove = h.button("-");
-                            if remove.clicked() {
-                                self.app.remove_extension(i);
-                                exit = true;
-                            }
-                        });
-                        if exit {
-                            break;
+                    menu.vertical(|v| {
+                        let iter = self.app.iterate_folders();
+
+                        if iter.is_none() {
+                            return;
                         }
-                    }
+                        let iter = iter.unwrap();
+                        for i in 0..iter.len() {
+                            let mut exit = false;
+                            v.horizontal(|h| {
+                                h.set_width(160.0);
+                                let label = h.label("Name");
+                                let _ = h.text_edit_singleline(self.app.get_folder(i))
+                                    .labelled_by(label.id);
+                                let remove = h.button("-");
+                                if remove.clicked() {
+                                    self.app.remove_folder(i);
+                                    exit = true;
+                                }
+                            });
+                            if exit {
+                                break;
+                            }
+                        }
+                    });
                 });
 
                 // ACTION
@@ -120,9 +125,20 @@ impl eframe::App for Dresser {
                         ui.heading("Results");
                         ui.colored_label(Color32::GREEN, format!("Lines of Code: {}", result.loc));
                         ui.label("Files:");
-                        for file in &result.files {
-                            ui.label(file);
-                        }
+                        ScrollArea::vertical()
+                            .max_height(180.0)
+                            .max_width(200.0)
+                            .auto_shrink(true)
+                            .show_rows(ui, 180.0, result.files.len(),|sa, _| {
+                                sa.with_layout(egui::Layout::top_down(egui::Align::LEFT), |l| {
+                                    for file in &result.files {
+                                        l.horizontal(|h| {
+                                            let file_info = String::from(&file.name)+":"+file.loc.to_string().as_str();
+                                            h.label(file_info);
+                                        });
+                                    }
+                                });
+                        });
                     }
                     Err(error) => {
                         ui.colored_label(Color32::RED, error.as_str());
