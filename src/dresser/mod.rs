@@ -1,11 +1,10 @@
 use egui::{Color32, Vec2};
-use tinyfiledialogs;
 
 use crate::app::App;
 
 pub struct Dresser {
     app:App,
-    file_dialog_open:bool
+    file_dialog_open:bool,
 }
 
 impl Dresser {
@@ -28,6 +27,7 @@ impl eframe::App for Dresser {
             .show(ctx, |ui| {
                 ui.set_min_size(Vec2::new(787.0, 700.0));
 
+                // SETTINGS
                 ui.label("Choose a path to your project");
                 let but = ui.button("Open");
                 if but.clicked() && !self.file_dialog_open {
@@ -44,6 +44,58 @@ impl eframe::App for Dresser {
                     ui.colored_label(Color32::GRAY, path);
                 }
 
+                ui.menu_button("Add custom extensions", |menu| {
+                    let but = menu.button("+");
+                    if but.clicked() {
+                        self.app.add_extension("");
+                    }
+
+                    let iter = self.app.iterate_extensions();
+                    if iter.is_none() {
+                        return;
+                    }
+                    let iter = iter.unwrap();
+                    
+                    for i in 0..iter.len() {
+                        menu.horizontal(|h| {
+                            let label = h.label("Name");
+                            let _ = h.text_edit_singleline(self.app.get_extension(i))
+                                .labelled_by(label.id);
+                            let remove = h.button("-");
+                            if remove.clicked() {
+                                todo!()
+                            }
+                        });
+                    }
+                });
+
+                ui.menu_button("Prohibit folders", |menu| {
+                    let but = menu.button("+");
+                    if but.clicked() {
+                        self.app.add_folder("");
+                    }
+
+                    let iter = self.app.iterate_folders();
+
+                    if iter.is_none() {
+                        return;
+                    }
+                    let iter = iter.unwrap();
+                    
+                    for i in 0..iter.len() {
+                        menu.horizontal(|h| {
+                            let label = h.label("Name");
+                            let _ = h.text_edit_singleline(self.app.get_folder(i))
+                                .labelled_by(label.id);
+                            let remove = h.button("-");
+                            if remove.clicked() {
+                                todo!()
+                            }
+                        });
+                    }
+                });
+
+                // ACTION
                 let action = ui.button("Action");
                 if action.clicked() {
                     self.app.action();
@@ -57,6 +109,10 @@ impl eframe::App for Dresser {
                     Ok(result) => {
                         ui.heading("Results");
                         ui.colored_label(Color32::GREEN, format!("Lines of Code: {}", result.loc));
+                        ui.label("Files:");
+                        for file in &result.files {
+                            ui.label(file);
+                        }
                     }
                     Err(error) => {
                         ui.colored_label(Color32::RED, error.as_str());

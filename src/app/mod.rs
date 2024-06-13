@@ -39,7 +39,9 @@ impl AppError {
 pub struct App {
     path_to_check: Option<String>,
     file_extensions: Option<Vec<String>>,
+    folders_to_ignore: Option<Vec<String>>,
     current_path: String,
+
     pub results: Option<Result<Results, AppError>>
 }
 
@@ -48,8 +50,9 @@ impl App {
         Self {
             path_to_check: None,
             file_extensions: None,
+            folders_to_ignore: None,
             current_path: cdir.to_owned(),
-            results: None
+            results: None,
         }
     }
 
@@ -67,6 +70,50 @@ impl App {
         }else {
             None
         }
+    }
+
+    pub fn add_extension(&mut self, ext_name:&str) {
+        if self.file_extensions.is_none() {
+            self.file_extensions = Some(Vec::new());
+        }
+        let extensions = self.file_extensions.as_mut().unwrap();
+        extensions.push(ext_name.to_owned());
+    }
+
+    pub fn get_extension(&mut self, i:usize) -> &mut String {
+        let exts = self.file_extensions.as_mut().unwrap();
+
+        &mut exts[i]
+    }
+
+    pub fn iterate_extensions(&mut self) -> Option<core::slice::Iter<String>> {
+        self.file_extensions.as_ref()?;
+
+        let extensions = self.file_extensions.as_mut().unwrap();
+
+        Some(extensions.iter())
+    }
+
+    pub fn add_folder(&mut self, ext_name:&str) {
+        if self.folders_to_ignore.is_none() {
+            self.folders_to_ignore = Some(Vec::new());
+        }
+        let folders = self.folders_to_ignore.as_mut().unwrap();
+        folders.push(ext_name.to_owned());
+    }
+
+    pub fn get_folder(&mut self, i:usize) -> &mut String {
+        let exts = self.folders_to_ignore.as_mut().unwrap();
+
+        &mut exts[i]
+    }
+
+    pub fn iterate_folders(&mut self) -> Option<core::slice::Iter<String>> {
+        self.folders_to_ignore.as_ref()?;
+
+        let folders = self.folders_to_ignore.as_mut().unwrap();
+
+        Some(folders.iter())
     }
 
     pub fn action(&mut self) {
@@ -98,42 +145,77 @@ impl App {
                 continue;
             }
             let entry = entry.unwrap();
+
             let meta = entry.metadata();
-            if let Ok(x) = meta {
-                if x.is_dir() {
-                    if entry.path().to_str().unwrap().contains('.') {
-                        continue
-                    }
-                    self.dig_entries(res, fs::read_dir(entry.path()));
-                }else if x.is_file() {
-                    let entrypath = entry.path();
-                    if !supports_extensions(&entrypath, &self.file_extensions) {
-                        continue
-                    }
-                    let file = fs::File::open(entrypath);
-                    if file.is_err() {
-                        continue
-                    }
-                    let mut file = file.unwrap();
-                    let mut buf: Vec<u8> = Vec::new();
-                    file.read_to_end(&mut buf).unwrap();
-                    res.loc += get_loc(&buf);
-                    res.files.push(entry.file_name().into_string().unwrap())
-                }
+            if meta.is_err() {
+                continue
             }
+
+            let meta = meta.unwrap();
+            let entrypath = entry.path();
+            if meta.is_dir() {
+                if is_hidden_folder(entrypath.as_path()) {
+                    continue
+                }
+                if has_ending(&entrypath, &self.folders_to_ignore) {
+                    continue
+                }
+                self.dig_entries(res, fs::read_dir(entrypath));
+            }else if meta.is_file() {
+                if !extension_is_valid(&entrypath, &self.file_extensions) {
+                    continue
+                }
+                let file = fs::File::open(entrypath);
+                if file.is_err() {
+                    continue
+                }
+                let mut file = file.unwrap();
+                let mut buf: Vec<u8> = Vec::new();
+                file.read_to_end(&mut buf).unwrap();
+                res.loc += get_loc(&buf);
+                res.files.push(entry.file_name().into_string().unwrap())
+            }   
         }
     }
 }
 
+fn is_hidden_folder(entrypath: &std::path::Path) -> bool {
+    if entrypath.ends_with(".git") {
+        return true
+    }
+    if entrypath.ends_with(".vscode") {
+        return true
+    }
 
+    false
+}
 
-fn supports_extensions(entry_path: &std::path::PathBuf, exts:&Option<Vec<String>>) -> bool {
+fn has_ending(entrypath: &std::path::Path, ends:&Option<Vec<String>>) -> bool {
+    if ends.is_none() {
+        return true
+    }
+
+    for end in ends.as_ref().unwrap() {
+        if entrypath.ends_with(end) {
+            return true
+        }
+    }
+
+    false
+}
+
+fn extension_is_valid(entrypath: &std::path::Path, exts:&Option<Vec<String>>) -> bool {
     if exts.is_none() {
         return true
     }
 
     for ext in exts.as_ref().unwrap() {
-        if entry_path.ends_with(ext) {
+        let extension = entrypath.extension();
+        if extension.is_none() {
+            return false
+        }
+        let extension = extension.unwrap();
+        if extension.to_str().unwrap() == ext {
             return true
         }
     }
