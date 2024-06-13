@@ -4,12 +4,11 @@ use crate::app::App;
 
 pub struct Dresser {
     app:App,
-    file_dialog_open:bool,
 }
 
 impl Dresser {
     pub fn new(cdir:&str) -> Self {
-        Self { app: App::new(cdir), file_dialog_open: false }
+        Self { app: App::new(cdir) }
     }
 }
 
@@ -30,17 +29,17 @@ impl eframe::App for Dresser {
                 // SETTINGS
                 ui.label("Choose a path to your project");
                 let but = ui.button("Open");
-                if but.clicked() && !self.file_dialog_open {
-                    self.file_dialog_open = true;
+                if but.clicked() {
 
                     let selected = tinyfiledialogs::select_folder_dialog("Rusty Locounter", self.app.get_current_path());
                     if let Some(str) = selected {
-                        self.file_dialog_open = false;
                         self.app.set_path(str.as_str());
                     }
                 }
                 
-                if let Some(path) = self.app.get_path() {
+                if let Some(path) = &self.app.get_path() {
+                    let path = path.to_owned().to_owned();
+                    self.app.set_current_path(path.as_str());
                     ui.colored_label(Color32::GRAY, path);
                 }
 

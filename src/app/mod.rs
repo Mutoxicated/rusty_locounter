@@ -64,6 +64,10 @@ impl App {
         }
     }
 
+    pub fn set_current_path(&mut self, path:&str) {
+        self.current_path = path.to_owned();
+    }
+
     pub fn get_current_path(&self) -> &str {
         self.current_path.as_str()
     }
