@@ -2,6 +2,7 @@
 
 mod app;
 mod dresser;
+mod savex;
 
 use dresser::Dresser;
 

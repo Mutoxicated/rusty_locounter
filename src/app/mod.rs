@@ -1,3 +1,4 @@
+mod pst;
 
 use std::{collections::HashMap, fs::{self, ReadDir}, hash::Hash, io::Read};
 
@@ -49,7 +50,7 @@ pub struct App {
     file_extensions: Option<Vec<String>>,
     folders_to_ignore: Option<Vec<String>>,
     current_path: String,
-    common_extension: Vec<String>,
+    common_extensions: Vec<String>,
 
     pub results: Option<Result<Results, AppError>>
 }
@@ -61,7 +62,7 @@ impl App {
             file_extensions: None,
             folders_to_ignore: None,
             current_path: cdir.to_owned(),
-            common_extension: vec![
+            common_extensions: vec![
                 "rs".to_owned(),
                 "go".to_owned(),
                 "lua".to_owned(),
@@ -247,7 +248,7 @@ impl App {
     }
 
     fn extension_is_common(&self, ext:&str) -> bool {
-        for bext in &self.common_extension {
+        for bext in &self.common_extensions {
             if bext == ext {
                 return true
             }
