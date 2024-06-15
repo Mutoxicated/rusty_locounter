@@ -1,5 +1,5 @@
 
-use std::{fs::{self, ReadDir}, io::Read};
+use std::{collections::HashMap, fs::{self, ReadDir}, hash::Hash, io::Read};
 
 pub struct Results {
     pub loc:usize,
@@ -49,6 +49,7 @@ pub struct App {
     file_extensions: Option<Vec<String>>,
     folders_to_ignore: Option<Vec<String>>,
     current_path: String,
+    common_extension: Vec<String>,
 
     pub results: Option<Result<Results, AppError>>
 }
@@ -60,6 +61,12 @@ impl App {
             file_extensions: None,
             folders_to_ignore: None,
             current_path: cdir.to_owned(),
+            common_extension: vec![
+                "rs".to_owned(),
+                "go".to_owned(),
+                "lua".to_owned(),
+                "cs".to_owned(),
+            ],
             results: None,
         }
     }
@@ -73,7 +80,30 @@ impl App {
     }
 
     pub fn set_path(&mut self, ptc:&str) {
-        self.path_to_check = Some(ptc.to_owned())
+        self.path_to_check = Some(ptc.to_owned());
+
+        let entries = fs::read_dir(
+            self.path_to_check
+            .as_ref()
+            .unwrap()
+            .as_str()
+        );
+
+        let mut exts:HashMap<String, usize> = HashMap::new();
+
+        self.get_common_extensions(entries, &mut exts);
+
+        for ext in &exts {
+            if *ext.1 < 2 {
+                continue;
+            }
+
+            if ext.0 == "rs" {
+                self.add_folder("target")
+            }
+
+            self.add_extension(ext.0);
+        }
     }
 
     pub fn get_path(&self) -> Option<&str> {
@@ -161,6 +191,68 @@ impl App {
         self.dig_entries(&mut results, entries);
 
         self.results = Some(Ok(results))
+    }
+
+    fn get_common_extensions(&self, entries: Result<ReadDir, std::io::Error>, exts:&mut HashMap<String, usize>) {
+        if entries.is_err() {
+            return;
+        }
+    
+        for entry in entries.unwrap() {
+            if entry.is_err() {
+                continue;
+            }
+            let entry = entry.unwrap();
+
+            let meta = entry.metadata();
+            if meta.is_err() {
+                continue
+            }
+
+            let meta = meta.unwrap();
+            let entrypath = entry.path();
+            if meta.is_dir() {
+                if is_hidden_folder(entrypath.as_path()) {
+                    continue
+                }
+                if has_ending(&entrypath, &self.folders_to_ignore) {
+                    continue
+                }
+                self.get_common_extensions(fs::read_dir(entrypath), exts);
+            }else if meta.is_file() {
+                if !extension_is_valid(&entrypath, &self.file_extensions) {
+                    continue
+                }
+                let file = fs::File::open(&entrypath);
+                if file.is_err() {
+                    continue
+                }
+                let ext_os = entrypath.extension();
+                if ext_os.is_none() {
+                    continue
+                }
+                let ext = ext_os.unwrap().to_str();
+                if ext.is_none() {
+                    continue
+                }
+                let ext = ext.unwrap().to_owned();
+
+                if !self.extension_is_common(ext.as_str()) {
+                    continue
+                }
+                exts.entry(ext.clone()).or_insert(1);
+                exts.entry(ext).and_modify(|v| { *v += 1 });
+            }   
+        }
+    }
+
+    fn extension_is_common(&self, ext:&str) -> bool {
+        for bext in &self.common_extension {
+            if bext == ext {
+                return true
+            }
+        }
+        false
     }
 
     fn dig_entries(&self, res:&mut Results, entries: Result<ReadDir, std::io::Error>) {

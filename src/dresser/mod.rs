@@ -17,14 +17,11 @@ impl eframe::App for Dresser {
     //fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {}
 
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        egui::Window::new("LOC Counter")
-            .current_pos([0.0,50.0])
-            .constrain(true)
-            .collapsible(false)
+        egui::SidePanel::left("Settings")
             .resizable(false)
-            .movable(false)
+            .exact_width(200.0)
+            .show_separator_line(true)
             .show(ctx, |ui| {
-                ui.set_min_size(Vec2::new(787.0, 700.0));
 
                 // SETTINGS
                 ui.label("Choose a path to your project");
@@ -109,11 +106,16 @@ impl eframe::App for Dresser {
                     });
                 });
 
-                // ACTION
                 let action = ui.button("Action");
                 if action.clicked() {
                     self.app.action();
                 }
+            });
+        
+        egui::SidePanel::right("Results")
+            .resizable(false)
+            .exact_width(620.0)
+            .show(ctx, |ui| {
                 let results = self.app.results.as_ref();
                 if results.is_none() {
                     return;
@@ -121,14 +123,15 @@ impl eframe::App for Dresser {
                 let results = results.unwrap();
                 match results {
                     Ok(result) => {
+                        let rows = result.files.len();
                         ui.heading("Results");
                         ui.colored_label(Color32::GREEN, format!("Lines of Code: {}", result.loc));
                         ui.label("Files:");
                         ScrollArea::vertical()
                             .max_height(180.0)
-                            .max_width(200.0)
-                            .auto_shrink(true)
-                            .show_rows(ui, 180.0, result.files.len(),|sa, _| {
+                            .max_width(250.0)
+                            .auto_shrink(false)
+                            .show_rows(ui, (rows*19) as f32, rows,|sa, _| {
                                 sa.with_layout(egui::Layout::top_down(egui::Align::LEFT), |l| {
                                     for file in &result.files {
                                         l.horizontal(|h| {
