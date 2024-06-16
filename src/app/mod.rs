@@ -1,10 +1,12 @@
 mod pst;
+mod file;
 
-use std::{collections::HashMap, fs::{self, ReadDir}, hash::Hash, io::Read};
+use std::{collections::HashMap, fs::{self, ReadDir}, io::Read};
+use file::EFile;
 
 pub struct Results {
     pub loc:usize,
-    pub files:Vec<File>
+    pub files:Vec<EFile>
 }
 
 impl Results {
@@ -30,21 +32,6 @@ impl AppError {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-pub struct File {
-    pub name: String,
-    pub loc: usize
-}
-
-impl File {
-    pub fn new(name: &str, loc: usize) -> Self {
-        Self {
-            name:name.to_owned(),
-            loc
-        }
-    }
-}
-
 pub struct App {
     path_to_check: Option<String>,
     file_extensions: Option<Vec<String>>,
@@ -55,6 +42,14 @@ pub struct App {
     pub results: Option<Result<Results, AppError>>
 }
 
+macro_rules! to_owned_vec {
+    ($($e:expr),*) => {
+        vec![
+            $($e.to_owned()),*
+        ]
+    };
+}
+
 impl App {
     pub fn new(cdir:&str) -> Self {
         Self {
@@ -62,11 +57,18 @@ impl App {
             file_extensions: None,
             folders_to_ignore: None,
             current_path: cdir.to_owned(),
-            common_extensions: vec![
-                "rs".to_owned(),
-                "go".to_owned(),
-                "lua".to_owned(),
-                "cs".to_owned(),
+            common_extensions: to_owned_vec![
+                "rs", "go",
+                "lua", "cs",
+                "js", "ts",
+                "py", "java",
+                "php", "rb",
+                "asm", "pl",
+                "mat", "htm",
+                "html", "sh",
+                "dart", "swift",
+                "vb", "c",
+                "cpp"
             ],
             results: None,
         }
@@ -94,13 +96,20 @@ impl App {
 
         self.get_common_extensions(entries, &mut exts);
 
+        self.folders_to_ignore = Some(Vec::new());
+        self.file_extensions = Some(Vec::new());
+
         for ext in &exts {
             if *ext.1 < 2 {
                 continue;
             }
 
             if ext.0 == "rs" {
-                self.add_folder("target")
+                self.add_folder("target");
+            }
+            if ext.0 == "c" {
+                self.add_folder("lib");
+                self.add_folder("include");
             }
 
             self.add_extension(ext.0);
@@ -221,9 +230,6 @@ impl App {
                 }
                 self.get_common_extensions(fs::read_dir(entrypath), exts);
             }else if meta.is_file() {
-                if !extension_is_valid(&entrypath, &self.file_extensions) {
-                    continue
-                }
                 let file = fs::File::open(&entrypath);
                 if file.is_err() {
                     continue
@@ -283,7 +289,7 @@ impl App {
                 }
                 self.dig_entries(res, fs::read_dir(entrypath));
             }else if meta.is_file() {
-                if !extension_is_valid(&entrypath, &self.file_extensions) {
+                if !self.extension_is_valid(&entrypath) {
                     continue
                 }
                 let file = fs::File::open(entrypath);
@@ -295,12 +301,32 @@ impl App {
                 file.read_to_end(&mut buf).unwrap();
                 let loc = get_loc(&buf);
                 res.loc += loc;
-                let folder = File::new(entry.file_name().to_str().unwrap(), loc);
+                let folder = EFile::new(entry.file_name().to_str().unwrap(), loc);
                 res.files.push(folder);
                 res.files.sort();
             }   
         }
     }
+
+    fn extension_is_valid(&self, entrypath: &std::path::Path) -> bool {
+        if self.file_extensions.is_none() {
+            return true
+        }
+    
+        for ext in self.file_extensions.as_ref().unwrap() {
+            let extension = entrypath.extension();
+            if extension.is_none() {
+                return false
+            }
+            let extension = extension.unwrap();
+            if extension.to_str().unwrap() == ext {
+                return true
+            }
+        }
+    
+        false
+    }
+    
 }
 
 fn is_hidden_folder(entrypath: &std::path::Path) -> bool {
@@ -328,24 +354,6 @@ fn has_ending(entrypath: &std::path::Path, ends:&Option<Vec<String>>) -> bool {
     false
 }
 
-fn extension_is_valid(entrypath: &std::path::Path, exts:&Option<Vec<String>>) -> bool {
-    if exts.is_none() {
-        return true
-    }
-
-    for ext in exts.as_ref().unwrap() {
-        let extension = entrypath.extension();
-        if extension.is_none() {
-            return false
-        }
-        let extension = extension.unwrap();
-        if extension.to_str().unwrap() == ext {
-            return true
-        }
-    }
-
-    false
-}
 
 fn get_loc(buf:&Vec<u8>) -> usize {
     let mut loc:usize = 1;

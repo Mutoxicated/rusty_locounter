@@ -31,12 +31,12 @@ impl eframe::App for Dresser {
                     let selected = tinyfiledialogs::select_folder_dialog("Rusty Locounter", self.app.get_current_path());
                     if let Some(str) = selected {
                         self.app.set_path(str.as_str());
+                        self.app.set_current_path(str.as_str());
                     }
                 }
                 
-                if let Some(path) = &self.app.get_path() {
-                    let path = path.to_owned().to_owned();
-                    self.app.set_current_path(path.as_str());
+                if let Some(path) = self.app.get_path() {
+                    let path = path.to_owned();
                     ui.colored_label(Color32::GRAY, path);
                 }
 
@@ -123,7 +123,7 @@ impl eframe::App for Dresser {
                 let results = results.unwrap();
                 match results {
                     Ok(result) => {
-                        let rows = result.files.len();
+                        //let rows = result.files.len();
                         ui.heading("Results");
                         ui.colored_label(Color32::GREEN, format!("Lines of Code: {}", result.loc));
                         ui.label("Files:");
@@ -131,8 +131,8 @@ impl eframe::App for Dresser {
                             .max_height(180.0)
                             .max_width(250.0)
                             .auto_shrink(false)
-                            .show_rows(ui, (rows*19) as f32, rows,|sa, _| {
-                                sa.with_layout(egui::Layout::top_down(egui::Align::LEFT), |l| {
+                            .show(ui,|sa| {
+                                sa.with_layout(egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true), |l| {
                                     for file in &result.files {
                                         l.horizontal(|h| {
                                             let file_info = String::from(&file.name)+":"+file.loc.to_string().as_str();
