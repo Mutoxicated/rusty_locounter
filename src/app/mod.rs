@@ -1,19 +1,25 @@
 mod pst;
 mod file;
+pub mod folder;
+pub mod line;
 
-use std::{collections::HashMap, fs::{self, ReadDir}, io::Read};
+use std::{collections::HashMap, fs::{self, ReadDir}, io::Read, path::PathBuf};
 use file::EFile;
+use folder::EFolder;
+use line::Line;
 
 pub struct Results {
     pub loc:usize,
-    pub files:Vec<EFile>
+    pub root:Option<EFolder>,
+    pub longest_line:Option<Line>,
 }
 
 impl Results {
     pub fn new() -> Self {
         Self {
             loc:0,
-            files: Vec::new()
+            root:None,
+            longest_line:None
         }
     }
 }
@@ -33,13 +39,14 @@ impl AppError {
 }
 
 pub struct App {
-    path_to_check: Option<String>,
+    path_to_check: Option<PathBuf>,
     file_extensions: Option<Vec<String>>,
     folders_to_ignore: Option<Vec<String>>,
     current_path: String,
     common_extensions: Vec<String>,
 
-    pub results: Option<Result<Results, AppError>>
+    pub results: Option<Results>,
+    pub error: Option<AppError>
 }
 
 macro_rules! to_owned_vec {
@@ -71,6 +78,7 @@ impl App {
                 "cpp"
             ],
             results: None,
+            error:None
         }
     }
 
@@ -83,13 +91,14 @@ impl App {
     }
 
     pub fn set_path(&mut self, ptc:&str) {
-        self.path_to_check = Some(ptc.to_owned());
+        self.path_to_check = Some(PathBuf::from(ptc));
 
         let entries = fs::read_dir(
             self.path_to_check
             .as_ref()
             .unwrap()
-            .as_str()
+            .to_str()
+            .unwrap()
         );
 
         let mut exts:HashMap<String, usize> = HashMap::new();
@@ -118,7 +127,7 @@ impl App {
 
     pub fn get_path(&self) -> Option<&str> {
         if let Some(str) = &self.path_to_check {
-            Some(str.as_str())
+            Some(str.to_str().unwrap())
         }else {
             None
         }
@@ -186,21 +195,24 @@ impl App {
 
     pub fn action(&mut self) {
         if self.path_to_check.is_none() {
-            self.results = Some(Err(AppError::NoPathToCheck));
+            self.error = Some(AppError::NoPathToCheck);
             return;
+        }else {
+            self.error = None;
         }
         let entries = fs::read_dir(
             self.path_to_check
             .as_ref()
             .unwrap()
-            .as_str()
+            .to_str()
+            .unwrap()
         );
-        
+
+        let mut root = EFolder::root(self.path_to_check.clone().unwrap().file_name().unwrap().to_str().unwrap().to_owned());
         let mut results = Results::new();
-
-        self.dig_entries(&mut results, entries);
-
-        self.results = Some(Ok(results))
+        self.dig_entries(&mut results, &mut root, entries);
+        results.root = Some(root);
+        self.results = Some(results);
     }
 
     fn get_common_extensions(&self, entries: Result<ReadDir, std::io::Error>, exts:&mut HashMap<String, usize>) {
@@ -262,11 +274,11 @@ impl App {
         false
     }
 
-    fn dig_entries(&self, res:&mut Results, entries: Result<ReadDir, std::io::Error>) {
+    fn dig_entries(&mut self, res: &mut Results, folder:&mut EFolder, entries: Result<ReadDir, std::io::Error>) {
         if entries.is_err() {
             return;
         }
-    
+
         for entry in entries.unwrap() {
             if entry.is_err() {
                 continue;
@@ -287,46 +299,56 @@ impl App {
                 if has_ending(&entrypath, &self.folders_to_ignore) {
                     continue
                 }
-                self.dig_entries(res, fs::read_dir(entrypath));
+                let path_name = entrypath.file_name().unwrap().to_str().unwrap().to_owned();
+                let next = EFolder::root(path_name);
+                folder.add_next(next);
+                self.dig_entries(res, folder.latest_next(), fs::read_dir(entrypath));
             }else if meta.is_file() {
-                if !self.extension_is_valid(&entrypath) {
+                if !extension_is_valid(&self.file_extensions,&entrypath) {
                     continue
                 }
-                let file = fs::File::open(entrypath);
+                let file = fs::File::open(&entrypath);
                 if file.is_err() {
                     continue
                 }
                 let mut file = file.unwrap();
                 let mut buf: Vec<u8> = Vec::new();
                 file.read_to_end(&mut buf).unwrap();
-                let loc = get_loc(&buf);
+                let (line, loc) = get_loc(&buf);
+                let changed = assign_longest_line(&mut res.longest_line, line);
+                if changed {
+                    res.longest_line.as_mut().unwrap().path = Some(entrypath.to_str().unwrap().to_owned());
+                }
                 res.loc += loc;
-                let folder = EFile::new(entry.file_name().to_str().unwrap(), loc);
-                res.files.push(folder);
-                res.files.sort();
+                let efile = EFile::new(entry.file_name().to_str().unwrap(), loc);
+                folder.add_file(efile);
+                folder.sort();
             }   
+        }
+        folder.next().sort();
+    }
+
+   
+    
+}
+
+fn extension_is_valid(exts: &Option<Vec<String>>,entrypath: &std::path::Path) -> bool {
+    if exts.is_none() {
+        return true
+    }
+
+    for ext in exts.as_ref().unwrap() {
+        let extension = entrypath.extension();
+        if extension.is_none() {
+            return false
+        }
+        let extension = extension.unwrap();
+        if extension.to_str().unwrap() == ext {
+            return true
         }
     }
 
-    fn extension_is_valid(&self, entrypath: &std::path::Path) -> bool {
-        if self.file_extensions.is_none() {
-            return true
-        }
-    
-        for ext in self.file_extensions.as_ref().unwrap() {
-            let extension = entrypath.extension();
-            if extension.is_none() {
-                return false
-            }
-            let extension = extension.unwrap();
-            if extension.to_str().unwrap() == ext {
-                return true
-            }
-        }
-    
-        false
-    }
-    
+    false
 }
 
 fn is_hidden_folder(entrypath: &std::path::Path) -> bool {
@@ -355,12 +377,42 @@ fn has_ending(entrypath: &std::path::Path, ends:&Option<Vec<String>>) -> bool {
 }
 
 
-fn get_loc(buf:&Vec<u8>) -> usize {
+fn get_loc(buf:&Vec<u8>) -> (Line, usize) {
     let mut loc:usize = 1;
+    let mut line_size = 0;
+    let mut location = 0;
+    let mut content = String::new();
+    let mut longest_line:Option<Line> = None;
     for byte in buf {
+        content.push(*byte as char);
+        line_size +=1;
         if *byte == b'\n' {
+            let new_line = Line { 
+                content:content.clone(), 
+                location, 
+                size:line_size,
+                path:None,
+            };
+            assign_longest_line(&mut longest_line, new_line);
+           
+            line_size = 0;
+            content.clear();
+            location += 1;
             loc += 1;
         }
     }
-    loc
+    let unwrapped = longest_line.unwrap();
+    (unwrapped, loc)
+}
+
+fn assign_longest_line(line1:&mut Option<Line>, line2: Line) -> bool {
+    #[allow(clippy::if_same_then_else)]
+    if line1.is_none() {
+        *line1 = Some(line2);
+        return true
+    }else if line1.as_ref().unwrap() < &line2 {
+        *line1 = Some(line2);
+        return true
+    }
+    false
 }

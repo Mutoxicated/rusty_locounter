@@ -1,4 +1,4 @@
-use egui::{lerp, Color32, ScrollArea, Vec2};
+use egui::{lerp, Color32, ScrollArea, Ui, Vec2};
 
 use crate::app::App;
 
@@ -116,36 +116,80 @@ impl eframe::App for Dresser {
             .resizable(false)
             .exact_width(620.0)
             .show(ctx, |ui| {
+                if let Some(err) = &self.app.error {
+                    ui.colored_label(Color32::RED, err.as_str());
+                    return;
+                }
+
                 let results = self.app.results.as_ref();
                 if results.is_none() {
                     return;
                 }
                 let results = results.unwrap();
-                match results {
-                    Ok(result) => {
-                        //let rows = result.files.len();
-                        ui.heading("Results");
-                        ui.colored_label(Color32::GREEN, format!("Lines of Code: {}", result.loc));
-                        ui.label("Files:");
-                        ScrollArea::vertical()
-                            .max_height(180.0)
-                            .max_width(250.0)
-                            .auto_shrink(false)
-                            .show(ui,|sa| {
-                                sa.with_layout(egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true), |l| {
-                                    for file in &result.files {
-                                        l.horizontal(|h| {
-                                            let file_info = String::from(&file.name)+":"+file.loc.to_string().as_str();
-                                            h.label(file_info);
-                                        });
-                                    }
-                                });
+                ui.heading("Results");
+                ui.colored_label(Color32::GREEN, format!("Lines of Code: {}", results.loc));
+                ui.label("Files:");
+                ScrollArea::vertical()
+                    .max_height(500.0)
+                    .max_width(250.0)
+                    .auto_shrink(false)
+                    .show(ui,|sa| {
+                        sa.with_layout(egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true), |l| {
+                            dress_folder(results.root.as_ref().unwrap(), 0, l);
                         });
-                    }
-                    Err(error) => {
-                        ui.colored_label(Color32::RED, error.as_str());
-                    }
-                }
+                });
+                ui.heading("Extra");
+                let longest = results.longest_line.as_ref().unwrap();
+                ui.label("Longest line:");
+                ui.label(longest.path.as_ref().unwrap());
+                ui.label(longest.content.clone());
+                ui.label("Size:".to_owned()+longest.size.to_string().as_str());
+                
             });
+    }
+}
+
+use crate::app::folder::EFolder;
+
+fn ident(num:usize) -> String {
+    let mut str = String::new();
+    for _ in 0..num {
+        str.push_str("   ");
+    }
+    str
+}
+
+fn section(num:usize) -> String {
+    let mut str = String::new();
+    for _ in 0..num {
+        str.push('-');
+    }
+    for _ in 0..num {
+        str.push(' ');
+    }
+    str
+}
+
+fn dress_folder(efolder:&EFolder, deep:usize, ui: &mut Ui) {
+    let yellow = Color32::from_rgb(255,255/(deep+1) as u8,0);
+
+    let files = efolder.get_files();
+    if let Some(files) = files {
+        let section = section(deep);
+        let extra_tabs = &ident(deep+1);
+        ui.colored_label(yellow, section+efolder.name()+":"+efolder.loc().to_string().as_str());
+        for file in files {
+            ui.horizontal(|h| {
+                let file_info = String::from(&file.name)+":"+file.loc.to_string().as_str();
+                let text = extra_tabs.clone();
+                h.label(text+file_info.as_str());
+            });
+        }
+    }
+
+    let nexts = efolder.next_immut();
+
+    for next in nexts {
+        dress_folder(next, deep+1, ui);
     }
 }
