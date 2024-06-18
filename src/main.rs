@@ -5,6 +5,7 @@ mod dresser;
 mod savex;
 
 use dresser::Dresser;
+use savex::Saver;
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -15,6 +16,13 @@ fn main() {
             .with_maximize_button(false),
         ..Default::default()
     };
+
+    let data = to_owned_vec![
+        "test",
+        "uhm"
+    ];
+
+    Saver::save_data(data);
 
     eframe::run_native(
         "LOC Counter", 

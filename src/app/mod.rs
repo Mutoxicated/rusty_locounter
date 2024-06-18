@@ -49,6 +49,7 @@ pub struct App {
     pub error: Option<AppError>
 }
 
+#[macro_export]
 macro_rules! to_owned_vec {
     ($($e:expr),*) => {
         vec![
