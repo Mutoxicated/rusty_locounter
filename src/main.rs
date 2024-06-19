@@ -1,4 +1,5 @@
 // LOCOUNTER
+#![feature(associated_type_bounds)]
 
 mod app;
 mod dresser;
