@@ -6,7 +6,8 @@ mod dresser;
 mod savex;
 
 use dresser::Dresser;
-use savex::Saver;
+use savex::sav;
+use savex::ex;
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -18,12 +19,10 @@ fn main() {
         ..Default::default()
     };
 
-    let data = to_owned_vec![
-        "test",
-        "uhm"
-    ];
+    let data = "test".to_owned();
+    sav::er::save_data(data);
 
-    Saver::save_data(data);
+    let extracter = ex::tracter::extract::<String>().unwrap();
 
     eframe::run_native(
         "LOC Counter", 
