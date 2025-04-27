@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 pub struct Line {
     pub content: String,
     pub location: usize,

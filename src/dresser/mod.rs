@@ -1,4 +1,4 @@
-use egui::{lerp, Color32, ScrollArea, Ui, Vec2};
+use egui::{Color32, ScrollArea, Ui};
 
 use crate::app::App;
 
@@ -162,11 +162,9 @@ fn ident(num:usize) -> String {
 fn section(num:usize) -> String {
     let mut str = String::new();
     for _ in 0..num {
-        str.push('-');
+        str.push_str("--");
     }
-    for _ in 0..num {
-        str.push(' ');
-    }
+    str.push(' ');
     str
 }
 
@@ -174,13 +172,13 @@ fn dress_folder(efolder:&EFolder, deep:usize, ui: &mut Ui) {
     let yellow = Color32::from_rgb(255,255/(deep+1) as u8,0);
 
     let files = efolder.get_files();
+    let section = section(deep);
+    let extra_tabs = &ident(deep+1);
+    ui.colored_label(yellow, section+efolder.name()+": "+efolder.total_loc().to_string().as_str());
     if let Some(files) = files {
-        let section = section(deep);
-        let extra_tabs = &ident(deep+1);
-        ui.colored_label(yellow, section+efolder.name()+":"+efolder.loc().to_string().as_str());
         for file in files {
             ui.horizontal(|h| {
-                let file_info = String::from(&file.name)+":"+file.loc.to_string().as_str();
+                let file_info = String::from(&file.name)+": "+file.loc.to_string().as_str();
                 let text = extra_tabs.clone();
                 h.label(text+file_info.as_str());
             });

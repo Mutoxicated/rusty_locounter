@@ -48,16 +48,25 @@ impl EFolder {
         }
     }
 
+    //returns the total lines of code that exist in the folder (including the files in the child folders)
+    pub fn total_loc(&self) -> usize {
+        let mut loc = self.loc;
+
+        self.next_immut().iter().for_each(|x| { loc += x.total_loc(); });
+
+        return loc;
+    }
+
+    pub fn remove_latest(&mut self) {
+        self.next.remove(self.next.len()-1);
+    }
+
     pub fn add_next(&mut self, next:EFolder) {
         self.next.push(next);
     }
 
     pub fn name(&self) -> &str {
         self.name.as_str()
-    }
-
-    pub fn loc(&self) -> usize {
-        self.loc
     }
 
     pub fn next(&mut self) -> &mut Vec<EFolder> {

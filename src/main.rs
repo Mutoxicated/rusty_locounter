@@ -1,13 +1,9 @@
 // LOCOUNTER
-#![feature(associated_type_bounds)]
 
 mod app;
 mod dresser;
-mod savex;
 
 use dresser::Dresser;
-use savex::sav;
-use savex::ex;
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -18,11 +14,6 @@ fn main() {
             .with_maximize_button(false),
         ..Default::default()
     };
-
-    let data = "test".to_owned();
-    sav::er::save_data(data);
-
-    let extracter = ex::tracter::extract::<String>().unwrap();
 
     eframe::run_native(
         "LOC Counter", 

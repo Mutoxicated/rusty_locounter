@@ -1,4 +1,3 @@
-mod pst;
 mod file;
 pub mod folder;
 pub mod line;
@@ -275,9 +274,10 @@ impl App {
         false
     }
 
-    fn dig_entries(&mut self, res: &mut Results, folder:&mut EFolder, entries: Result<ReadDir, std::io::Error>) {
+    fn dig_entries(&mut self, res: &mut Results, folder:&mut EFolder, entries: Result<ReadDir, std::io::Error>) -> bool {
+        let mut nofiles = true;
         if entries.is_err() {
-            return;
+            return nofiles;
         }
 
         for entry in entries.unwrap() {
@@ -303,7 +303,11 @@ impl App {
                 let path_name = entrypath.file_name().unwrap().to_str().unwrap().to_owned();
                 let next = EFolder::root(path_name);
                 folder.add_next(next);
-                self.dig_entries(res, folder.latest_next(), fs::read_dir(entrypath));
+                let nofiles2 = self.dig_entries(res, folder.latest_next(), fs::read_dir(entrypath));
+                if nofiles2 {
+                    folder.remove_latest();
+                }
+                nofiles = nofiles && nofiles2
             }else if meta.is_file() {
                 if !extension_is_valid(&self.file_extensions,&entrypath) {
                     continue
@@ -312,6 +316,7 @@ impl App {
                 if file.is_err() {
                     continue
                 }
+                nofiles = false;
                 let mut file = file.unwrap();
                 let mut buf: Vec<u8> = Vec::new();
                 file.read_to_end(&mut buf).unwrap();
@@ -327,10 +332,39 @@ impl App {
             }   
         }
         folder.next().sort();
+        return nofiles
     }
 
    
     
+}
+
+fn get_loc(buf:&Vec<u8>) -> (Line, usize) {
+    let mut loc:usize = 1;
+    let mut line_size = 0;
+    let mut location = 0;
+    let mut content = String::new();
+    let mut longest_line:Option<Line> = None;
+    for byte in buf {
+        content.push(*byte as char);
+        line_size +=1;
+        if *byte == b'\n' {
+            let new_line = Line { 
+                content:content.clone(), 
+                location, 
+                size:line_size,
+                path:None,
+            };
+            assign_longest_line(&mut longest_line, new_line);
+           
+            line_size = 0;
+            content.clear();
+            location += 1;
+            loc += 1;
+        }
+    }
+    let unwrapped = longest_line.unwrap();
+    (unwrapped, loc)
 }
 
 fn extension_is_valid(exts: &Option<Vec<String>>,entrypath: &std::path::Path) -> bool {
@@ -375,35 +409,6 @@ fn has_ending(entrypath: &std::path::Path, ends:&Option<Vec<String>>) -> bool {
     }
 
     false
-}
-
-
-fn get_loc(buf:&Vec<u8>) -> (Line, usize) {
-    let mut loc:usize = 1;
-    let mut line_size = 0;
-    let mut location = 0;
-    let mut content = String::new();
-    let mut longest_line:Option<Line> = None;
-    for byte in buf {
-        content.push(*byte as char);
-        line_size +=1;
-        if *byte == b'\n' {
-            let new_line = Line { 
-                content:content.clone(), 
-                location, 
-                size:line_size,
-                path:None,
-            };
-            assign_longest_line(&mut longest_line, new_line);
-           
-            line_size = 0;
-            content.clear();
-            location += 1;
-            loc += 1;
-        }
-    }
-    let unwrapped = longest_line.unwrap();
-    (unwrapped, loc)
 }
 
 fn assign_longest_line(line1:&mut Option<Line>, line2: Line) -> bool {
