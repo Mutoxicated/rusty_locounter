@@ -1,28 +1,38 @@
-// LOCOUNTER
-
 mod app;
-mod dresser;
+mod ui;
 
-use dresser::Dresser;
+use iced::{widget::Column, Settings};
 
-fn main() {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_min_inner_size([700.0,700.0])
-            .with_resizable(false)
-            .with_minimize_button(false)
-            .with_maximize_button(false),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "LOC Counter", 
-        options, 
-        Box::new(|_| {
-            let current_dir = std::env::current_dir().unwrap();
-            let stred = current_dir.to_str().unwrap();
-            
-            Box::<Dresser>::new(Dresser::new(stred))
-        })
-    ).unwrap();
+struct Program {
+    app:app::App
 }
+
+impl Default for Program {
+    fn default() -> Self {
+        let current_dir = std::env::current_dir().unwrap();
+        let stred = current_dir.to_str().unwrap();
+        let app = app::App::new(stred);
+
+        Self {
+            app
+        }
+    }
+}
+
+
+
+impl Program {
+    pub fn view(&self) -> Column<i32> {
+        return Column::new()
+    }
+
+    pub fn update(&mut self, message: i32) {
+
+    }
+
+}
+
+pub fn main() -> iced::Result {
+    iced::run("LOC Counter", Program::update, Program::view)
+}
+
